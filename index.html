@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Chatroom with Gemini API</title>
+    <style>
+        body {
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #000;
+            /* Default background in case image doesn't load */
+        }
+
+        #backgroundWrapper {
+            width: 80vw;
+            /* Use viewport width units */
+            max-width: 800px;
+            /* Maximum width remains 800px */
+            height: 80vw;
+            /* Height is set to be the same in viewport width units, approximating the width */
+            max-height: 800px;
+            /* Maximum height to match the maximum width */
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            background-image: url('./img/opening.gif');
+            /* Replace with your image path */
+            background-size: contain;
+            /* Ensures the image is fully visible without stretching */
+            background-repeat: no-repeat;
+            background-position: center bottom;
+        }
+
+        #gameContainer {
+            width: 100%;
+            /* Takes the full width of the background wrapper */
+            height: 200px;
+            /* Adjusted height to position at the bottom of the image */
+            background: rgba(0, 0, 0, 0.8);
+            /* Semi-transparent black background */
+            padding: 10px;
+            display: none;
+            box-sizing: border-box;
+            border: 1px solid #fff;
+            overflow: hidden;
+        }
+
+        #messages {
+            height: 80%;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            margin: 5px 0;
+        }
+
+        .userMessage {
+            color: #0f0;
+        }
+
+        .botMessage {
+            color: #ff0;
+        }
+
+        #messageInput {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            background: transparent;
+            border: none;
+            border-top: 1px solid #fff;
+            color: white;
+            font-size: 16px;
+        }
+
+        #startButton,
+        #introButton {
+            padding: 15px 30px;
+            /* Increase padding for a better look */
+            font-size: 20px;
+            /* Adjust font size */
+            cursor: pointer;
+            /* Position it within the wrapper */
+            margin-bottom: 20px;
+            color: white;
+            /* Text color */
+            background: rgba(0, 0, 0, 0.8);
+            /* Same semi-transparent background as introBlock */
+            border: 1px solid #fff;
+            /* Same border as introBlock */
+            border-radius: 5px;
+            /* Rounded corners similar to introBlock */
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+            /* Subtle shadow for depth */
+            transition: all 0.3s ease;
+            /* Smooth transition for hover effects */
+        }
+
+        #startButton:hover,
+        #introButton:hover {
+            background: rgba(0, 0, 0, 1);
+            /* Darker background on hover */
+            box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.5);
+            /* Slightly larger shadow on hover */
+            transform: scale(1.05);
+            /* Slightly enlarge on hover */
+        }
+
+        #introBlock {
+            width: 80%;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.8);
+            /* Semi-transparent background */
+            padding: 20px;
+            box-sizing: border-box;
+            border: 1px solid #fff;
+            margin-bottom: 20px;
+            /* Space between intro block and start button */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: none;
+            /* Initially hidden */
+        }
+    </style>
+</head>
+
+<body>
+    <div id="introBlock">
+        <h2>歡迎來到《職場蛻變》</h2>
+        <p>在《職場蛻變》中，每一個選擇都將帶來不同的結果和體驗。你將扮演一位大學剛畢業，即將進入大型企業工作的新進員工，請幫助他渡過職場上的難關，選擇沒有對錯，這是一場純粹的體驗之旅，請享受在職場中的酸甜苦辣。</p>
+        <button id="startButton">Start Game</button>
+    </div>
+    <div id="backgroundWrapper">
+        <button id="introButton">遊戲介紹</button>
+        <div id="gameContainer">
+            <div id="messages"></div>
+            <form id="messageForm">
+                <input type="text" id="messageInput" placeholder="Type your command...">
+            </form>
+        </div>
+    </div>
+
+</body>
+<script>
+    var conversationHistory = [];
+
+    // var apiKey = prompt("Please enter your API key:", "");
+    var userName = prompt("Please enter your name:", "");
+
+    // if (!apiKey || !userName) {
+    //     alert("API key and name are required to use the chatroom.");
+    //     // Optionally, redirect or disable form
+    // } else {
+    document.getElementById('messageForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var inputElement = document.getElementById('messageInput');
+        var message = inputElement.value;
+
+        addToConversationHistory('user', message);
+        displayMessage(message, 'user');
+        inputElement.disabled = true;
+        fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyD53m4-G-k4lUo0i7917kkwvLWWWpmVH_c', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                "contents": conversationHistory,
+                "safetySettings": [
+                    {
+                        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        "threshold": "BLOCK_NONE"
+                    },
+                    {
+                        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        "threshold": "BLOCK_NONE"
+                    },
+                ],
+                "generationConfig": {
+                    "stopSequences": [
+                        ""
+                    ],
+                    "temperature": 2.0,
+                    "maxOutputTokens": 2048,
+                    "topP": 0.8,
+                    "topK": 10
+                }
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                var responseText = data.candidates[0].content.parts[0].text;
+                addToConversationHistory('model', responseText);
+                displayMessage(responseText, 'bot');
+                inputElement.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error:', error)
+                inputElement.disabled = false;
+            });
+
+        document.getElementById('messageInput').value = '';
+    });
+    // }
+
+    function addToConversationHistory(role, text) {
+        conversationHistory.push({
+            "role": role,
+            "parts": [{
+                "text": text
+            }]
+        });
+    }
+
+    function displayMessage(message, sender) {
+        var messageElement = document.createElement('div');
+        var formatMessage = formatText(message);
+        //messageElement.innerHTML = formatMessage;
+        messageElement.classList.add('message');
+        if (sender === 'user') {
+            messageElement.classList.add('userMessage');
+        } else {
+            messageElement.classList.add('botMessage');
+        }
+        document.getElementById('messages').appendChild(messageElement);
+        //Scroll to bottom
+        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        updateSceneImage(message);
+        // Function to display the text one character at a time
+        function typeText(element, text, index) {
+            if (index < text.length) {
+                let char = text[index];
+                if (char === '<') {
+                    let endIndex = text.indexOf('>', index);
+                    if (endIndex !== -1) {
+                        element.innerHTML += text.substring(index, endIndex + 1);
+                        index = endIndex + 1;
+                    }
+                } else {
+                    element.innerHTML += char;
+                    index++;
+                }
+                setTimeout(function () {
+                    typeText(element, text, index);
+                }, 75); // Adjust typing speed by changing the delay (in milliseconds)
+            } else {
+                // Scroll to bottom after the entire message is displayed
+                document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            }
+        }
+
+        // Start typing the formatted message
+        typeText(messageElement, formatMessage, 0);
+    }
+
+    function updateSceneImage(responseText) {
+        let sceneMatch = responseText.match(/場景：(.*?)\s/); // 使用正則表達式匹配場景描述
+        if (sceneMatch && sceneMatch[1]) {
+            let scene = sceneMatch[1];
+            console.log(scene);
+
+            if (scene.includes("辦公室")) {
+                document.getElementById('backgroundWrapper').style.backgroundImage = "url('./img/office.jpeg')";
+            } else if (scene.includes("餐廳")) {
+                document.getElementById('backgroundWrapper').style.backgroundImage = "url('./img/restaurant.jpeg')";
+            }
+        }
+    }
+
+    function formatText(text) {
+        // Replace ** with a new line and bold tag
+        let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong>');
+
+        // Replace * with a new line and bullet point
+        formattedText = formattedText.replace(/\*(.*?)\s/g, '<br>$1');
+
+        return formattedText;
+    }
+
+    document.getElementById('introButton').addEventListener('click', function () {
+        document.getElementById('introBlock').style.display = 'block';
+        this.style.display = 'none'; // Hide the intro button
+        document.getElementById('startButton').style.display = 'block'; // Show the start button
+    });
+
+    document.getElementById('startButton').addEventListener('click', function () {
+        // Change background image and display settings when starting the game
+        document.getElementById('backgroundWrapper').style.backgroundImage = "url('./img/office.jpeg')";
+        document.getElementById('introBlock').style.display = 'none'; // Show the game container
+        document.getElementById('gameContainer').style.display = 'inline';
+        document.getElementById('introButton').style.display = 'none'; // Hide the start button
+
+        conversationHistory.push({
+            "role": 'user',
+            "parts": [{
+                "text": `腳本：
+                        """
+                        遊戲標題：職場蛻變
+                        遊戲背景
+                        ${userName}是一位大學剛畢業，即將進入大型企業工作的新進員工。她充滿期待，但也感到忐忑不安。遊戲將探索她在新職場中的成長和挑戰。遊戲通過${userName}的互動和選擇來強調在職場中主動融入和積極溝通的重要性。
+
+                        主要角色：
+                        ${userName}：主角，剛入職的職場新人，內向但充滿好奇心。
+                        傑米：${userName}的直接上司，要求嚴格但給予支持。
+                        艾琳：${userName}的同事，友善且樂於助人。
+
+                        遊戲腳本流程
+
+                        ***開場：***
+                        <場景：辦公室>
+                        ${userName}第一天來到辦公室，周圍陌生而繁忙。她感到有些不知所措，但也期待著新的挑戰。
+                        選擇A：主動向同事打招呼，表現出友善和開放的態度。
+                        選擇B：保持低調，靜靜地待在自己的位置，觀察周圍的情況。
+
+                        若選擇A，${userName}主動向附近的同事打招呼。莉莉友善地回應並介紹自己，讓${userName}感到溫暖和歡迎。
+                         選擇A1：和莉莉聊聊天，詢問她一些關於公司的問題。
+                         選擇A2：轉身去找艾倫，向他打招呼。
+
+                        若選擇B，${userName}保持低調，靜靜地觀察周圍的情況。她注意到一個人影靠近她。
+                         選擇B1：主動和該人打招呼。
+                         選擇B2：繼續觀察，等待該人主動和她交流。
+
+                        若選擇A1，${userName}和莉莉聊得很開心，她得到了一些關於公司文化和工作內容的信息。
+                         選擇A1.1：請教莉莉如何在工作中更有效率地完成任務。（進入午餐時間劇情）
+                         選擇A1.2：表達對莉莉的感謝，然後轉身去找艾倫。（進入午餐時間劇情）
+
+                        若選擇A2，${userName}轉身去找艾倫，他正在忙碌地處理文件。${userName}輕聲打招呼，引起了艾倫的注意。
+                         選擇A2.1：請教艾倫關於工作任務的細節。（進入午餐時間劇情）
+                         選擇A2.2：聊一些輕鬆的話題，例如天氣或是周末的計劃。（進入午餐時間劇情）
+
+                        若選擇B1，她轉過頭來，露出友善的笑容。該名員工叫莉莉，顯得很開朗，開始跟${userName}聊了起來，介紹了一些公司的情況。（進入午餐時間劇情）
+                        若選擇B2，${userName}選擇繼續觀察，等待那人主動和她交流。那人看著${userName}，示意自己名叫莉莉。她微笑著表示很高興認識${userName}，並開始跟她聊了起來，介紹了一些公司的情況。（進入午餐時間劇情）
+
+                        ***午餐時間：***
+                        <場景：餐廳>
+                         選擇A：和莉莉一起去午餐。
+                         選擇B：與艾倫談論工作細節。
+
+                        若選擇A，${userName}和莉莉在餐廳享受午餐，彼此交換了關於工作和生活的故事。
+                         選擇A1：談論工作上的挑戰，尋求莉莉的建議。（選擇後進入工作任務劇情）
+                         選擇A2：聊些輕鬆的話題，放鬆心情。（選擇後進入工作任務劇情）
+
+                        若選擇B，${userName}選擇和艾倫一起共進午餐，討論工作細節。她走向艾倫的辦公桌，看到他正在忙碌地處理文件。
+                         選擇B1：把餐盒遞給艾倫後離開，決定先不打擾他。（選擇後進入工作任務劇情）
+                         選擇B2：詢問工作上的問題。（選擇後進入工作任務劇情）
+
+                        ***工作任務：***
+                        <場景：辦公室>
+                        ${userName}面臨了一個重要的工作任務，需要在短時間內完成。
+                         選擇A：專心完成任務。
+                         選擇B：向同事尋求幫助。
+
+                        若選擇A，${userName}決定專心完成任務並專注地開始工作。時間一分一秒過去，她感覺壓力不斷增加。
+                         選擇A1：不浪費時間，盡可能高效地處理每個細節。（選擇後進入工作評估劇情）
+                         選擇A2：休息一下，試圖靜下心來，再繼續進行工作。（選擇後進入工作評估劇情）
+
+                        若選擇B，${userName}意識到這個任務可能超出她的能力範圍，於是她決定向同事尋求幫助。她站起身...
+                         選擇B1：去請求艾倫的幫助。（選擇後進入工作評估劇情）
+                         選擇B2：決定去找莉莉尋求幫助。（選擇後進入工作評估劇情）
+
+                        ***工作評估：***
+                        <場景：辦公室>
+                        艾蜜莉的工作任務得到了良好的評價，但她也遇到了一些挑戰，需要改進。
+                         選擇A：接受評價，努力改進。（選擇後進入結局，根據玩家的選擇進行反思及回顧）
+                         選擇B：不接受評價，堅持自己的想法。（選擇後進入結局，根據玩家的選擇進行反思及回顧）
+
+                        結局：
+                        成長融入結局：${userName}努力克服壓力，虛心接受評價，努力改進，最終成功地完成了任務。她展現了出色的工作能力和承擔責任的態度，獲得了同事和上司的認可。這次經歷讓她在職場上獲得了更多信心和尊重，成為了團隊中的重要一員。
+
+                        孤立失敗結局：${userName}堅持專心完成任務，但在龐大的壓力下以及堅持自己固執的想法後工作出現了錯誤和延誤，結果讓她感到挫折和失望。沒有積極融入團隊，導致與同事之間的距離逐漸拉遠。她感到孤立和失敗，錯失了很多機會，對未來充滿迷茫和焦慮。
+
+                        遊戲結尾：
+                        遊戲結束後，根據玩家的選擇提供一段反思，強調在職場中主動融入和積極溝通的重要性，以及如何克服內向的性格，勇敢面對挑戰。"""
+
+                        請根據腳本中的對話，根據"""開場"""到"""午餐時間"""到"""工作任務"""最後到"""工作評估"""進行，開始一個文字冒險遊戲，每一次的對話，都需要呈現以下格式與資訊：
+                        **<場景>：目前故事的背景為何**
+                        <選擇>：在每一次的對話中，你都會根據腳本給我可以選擇的動作，根據我選擇的動作繼續接下來的劇情，整體劇情會圍繞腳本發展。根據我的選擇進行故事就好，不要幫我做出選擇`
+            }]
+        })
+        fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyD53m4-G-k4lUo0i7917kkwvLWWWpmVH_c', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                "contents": conversationHistory,
+                "safetySettings": [
+                    {
+                        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        "threshold": "BLOCK_NONE"
+                    },
+                    {
+                        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        "threshold": "BLOCK_NONE"
+                    },
+                ],
+                "generationConfig": {
+                    "stopSequences": [
+                        ""
+                    ],
+                    "temperature": 2.0,
+                    "maxOutputTokens": 2048,
+                    "topP": 0.8,
+                    "topK": 10
+                }
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log(conversationHistory);
+                var responseText = data.candidates[0].content.parts[0].text;
+                addToConversationHistory('model', responseText);
+                displayMessage(responseText, 'bot');
+            })
+            .catch(error => console.error('Error:', error));
+    });
+
+
+
+</script>
+
+</html>
